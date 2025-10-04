@@ -1,11 +1,11 @@
 {
-  "codeowners": ["@TheRealKillaruna"],
-  "config_flow": false,
+  "codeowners": ["@Django1982", "@TheRealKillaruna"],
+  "config_flow": true,
   "dependencies": [],
   "documentation": "https://github.com/TheRealKillaruna/nano_pk",
   "domain": "nano_pk",
   "iot_class": "calculated",
   "name": "Hargassner Nano-PK",
-  "requirements": ["apscheduler"],
-  "version": "0.1"
+  "requirements": [],
+  "version": "0.3"
 }

@@ -1,0 +1,93 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Hargassner Nano-PK Einrichtung",
+        "description": "Konfigurieren Sie die Verbindung zu Ihrem Hargassner Kessel",
+        "data": {
+          "host": "IP-Adresse oder Hostname",
+          "name": "Gerätename",
+          "parameters": "Parametersatz",
+          "language": "Sprache"
+        }
+      },
+      "template": {
+        "title": "Nachrichtenformat auswählen",
+        "description": "Wählen Sie eine Vorlage für Ihr Kesselmodell oder geben Sie eigenes XML ein.\n\n{templates_info}",
+        "data": {
+          "template": "Vorlage"
+        }
+      },
+      "custom_xml": {
+        "title": "Eigenes DAQPRJ XML",
+        "description": "Fügen Sie Ihren DAQPRJ XML-Inhalt ein.\n\n{xml_help}",
+        "data": {
+          "xml_content": "XML-Inhalt"
+        }
+      },
+      "de_csv": {
+        "title": "Fehlercode-Übersetzungen (Optional)",
+        "description": "{csv_help}",
+        "data": {
+          "de_csv_content": "DE.CSV-Inhalt (Optional)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Verbindung zum Kessel fehlgeschlagen. Bitte überprüfen Sie die IP-Adresse und stellen Sie sicher, dass der Kessel erreichbar ist.",
+      "invalid_xml": "Ungültiges DAQPRJ XML-Format. Bitte überprüfen Sie die XML-Struktur.",
+      "invalid_csv": "Ungültiges DE.CSV-Format. Bitte überprüfen Sie den CSV-Inhalt.",
+      "unknown": "Ein unerwarteter Fehler ist aufgetreten. Bitte überprüfen Sie die Logs.",
+      "cannot_save_xml": "Fehler beim Speichern der XML-Konfigurationsdatei."
+    },
+    "abort": {
+      "already_configured": "Dieses Gerät ist bereits konfiguriert.",
+      "cannot_save_xml": "Fehler beim Speichern der XML-Konfigurationsdatei.",
+      "reconfigure_successful": "Neukonfiguration abgeschlossen. Die Integration wurde neu geladen."
+    }
+  },
+  "reconfigure": {
+    "step": {
+      "reconfigure": {
+        "title": "Hargassner neu konfigurieren",
+        "description": "Konfiguration nach Firmware-Update oder Netzwerkänderungen aktualisieren.\n\n{current_config}",
+        "data": {
+          "host": "IP-Adresse oder Hostname"
+        }
+      },
+      "reconfigure_template": {
+        "title": "Nachrichtenformat aktualisieren",
+        "description": "Wählen Sie eine neue Vorlage oder geben Sie aktualisiertes XML ein.",
+        "data": {
+          "template": "Vorlage"
+        }
+      },
+      "reconfigure_custom_xml": {
+        "title": "Eigenes DAQPRJ XML aktualisieren",
+        "description": "Fügen Sie Ihren aktualisierten DAQPRJ XML-Inhalt ein.",
+        "data": {
+          "xml_content": "XML-Inhalt"
+        }
+      },
+      "reconfigure_de_csv": {
+        "title": "Fehlercodes aktualisieren (Optional)",
+        "description": "Fügen Sie aktualisierten DE.CSV-Inhalt ein, falls sich Fehlercodes geändert haben.",
+        "data": {
+          "de_csv_content": "DE.CSV-Inhalt (Optional)"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Hargassner Optionen",
+        "description": "Einstellungen der Integration ändern",
+        "data": {
+          "parameters": "Parametersatz",
+          "language": "Sprache"
+        }
+      }
+    }
+  }
+}

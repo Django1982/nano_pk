@@ -1,15 +1,19 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Wed Mar  3 22:22:58 2021
+"""Hargassner pellet boiler communication bridge.
 
-@author: Tobias
+This module provides communication with Hargassner Nano-PK pellet boilers via Telnet.
+
+Original code by @TheRealKillaruna
+Enhanced error handling and reconnection logic by @Django1982 with Claude Code
 """
 
 import asyncio
+import logging
 from datetime import datetime, timedelta
 import xml.etree.ElementTree as xml
 from homeassistant.helpers.entity import Entity
 from .const import BRIDGE_STATE_OK, BRIDGE_STATE_DISCONNECTED, BRIDGE_TIMEOUT
+
+_LOGGER = logging.getLogger(__name__)
 
 
 
@@ -98,16 +102,28 @@ class HargassnerDigitalParameter(HargassnerParameter):
         self._bitmask = bitmask
     
     def initializeFromMessage(self, msg):
+        raw = msg[self._index]
         try:
-            self._value = (str)(((int)(msg[self._index], 16) & self._bitmask) > 0)
+            value = int(raw, 16)
         except Exception:
-            self._value = None
+            try:
+                value = int(float(raw))
+            except Exception:
+                self._value = None
+                return
+        self._value = str((value & self._bitmask) > 0)
 
 
 SCAN_INTERVAL = timedelta(seconds=5)
 
 class HargassnerBridge(Entity):
-       
+    """Bridge entity for Hargassner boiler communication."""
+
+    # Exponential backoff constants
+    _RECONNECT_DELAY_MIN = 1.0  # Start with 1 second
+    _RECONNECT_DELAY_MAX = 30.0  # Max 30 seconds
+    _RECONNECT_BACKOFF_FACTOR = 2.0  # Double each time
+
     def __init__(self, hostIP, name, uniqueId, updateInterval=1.0, msgFormat=HargassnerMessageTemplates.NANO_V14L):
         super().__init__()
         self._hostIP = hostIP
@@ -118,10 +134,19 @@ class HargassnerBridge(Entity):
         self._paramData = {}
         self._expectedMsgLength = 0
         self._missedMsgs = 0
+        self._actualMsgLength = None
         self._errorLog = ""
         self._infoLog = ""
         self._name = name + " connection"
         self._unique_id = uniqueId
+
+        # Connection statistics and retry logic
+        self._reconnect_delay = self._RECONNECT_DELAY_MIN
+        self._connection_attempts = 0
+        self._total_reconnects = 0
+        self._last_connection_error = None
+        self._last_connection_attempt = None
+
         self.setMessageFormat(msgFormat)
         
         
@@ -164,40 +189,171 @@ class HargassnerBridge(Entity):
             except Exception:
                 pass
         
+    def _should_attempt_reconnect(self) -> bool:
+        """Check if we should attempt a reconnection based on backoff delay."""
+        if self._last_connection_attempt is None:
+            return True
+
+        time_since_last_attempt = (datetime.now() - self._last_connection_attempt).total_seconds()
+        return time_since_last_attempt >= self._reconnect_delay
+
+    def _reset_reconnect_delay(self):
+        """Reset reconnect delay after successful connection."""
+        self._reconnect_delay = self._RECONNECT_DELAY_MIN
+        self._connection_attempts = 0
+
+    def _increase_reconnect_delay(self):
+        """Increase reconnect delay using exponential backoff."""
+        self._reconnect_delay = min(
+            self._reconnect_delay * self._RECONNECT_BACKOFF_FACTOR,
+            self._RECONNECT_DELAY_MAX
+        )
+        self._connection_attempts += 1
+
     async def async_update(self):
         if self._connectionOK:
             try:
                 msgReceived = False
                 data = await asyncio.wait_for(self._reader.read(64*1024), timeout=BRIDGE_TIMEOUT)   # read up to 64k
+
+                if not data:
+                    _LOGGER.warning(
+                        "Hargassner %s: Empty data received, connection might be closed",
+                        self._name
+                    )
+                    self._connectionOK = False
+                    return
+
                 lines = data.decode().strip().split("\n")
                 for l in reversed(lines):
-                    msg = l.split()[1:] # remove first field "pm"
-                    if len(msg) != self._expectedMsgLength:
+                    # Split and validate line format
+                    parts = l.split()
+                    if len(parts) < 2:  # Need at least "pm" + 1 data field
                         continue
+
+                    msg = parts[1:]  # remove first field "pm"
+                    if len(msg) < self._expectedMsgLength:
+                        _LOGGER.debug(
+                            "Hargassner %s: Message too short (%d < %d), skipping",
+                            self._name, len(msg), self._expectedMsgLength
+                        )
+                        continue
+
+                    if self._actualMsgLength != len(msg):
+                        self._actualMsgLength = len(msg)
+                        if len(msg) != self._expectedMsgLength:
+                            _LOGGER.info(
+                                "Hargassner %s: Adjusting message length to %d (expected %d)",
+                                self._name, len(msg), self._expectedMsgLength
+                            )
+                            self._expectedMsgLength = len(msg)
+
                     for param in self._paramData.values():
                         param.initializeFromMessage(msg)
+
                     self._latestUpdate = datetime.now()
                     msgReceived = True
                     self._missedMsgs = 0
                     break
+
                 if not msgReceived:
-                    self._errorLog += "HargassnerBridge._update(): Received message has unexpected length.\n"
                     self._missedMsgs += 1
-                    if self._missedMsgs > 10: self._connectionOK = False    # reconnect if too many errors
-            except Exception as e:
-                self._errorLog += "HargassnerBridge.async_update(): Telnet connection error (" + repr(e) + ")\n"
+                    _LOGGER.warning(
+                        "Hargassner %s: No valid message received (%d consecutive misses)",
+                        self._name, self._missedMsgs
+                    )
+                    if self._missedMsgs > 10:
+                        _LOGGER.error(
+                            "Hargassner %s: Too many consecutive message failures, forcing reconnect",
+                            self._name
+                        )
+                        self._connectionOK = False
+
+            except asyncio.TimeoutError:
+                _LOGGER.warning(
+                    "Hargassner %s: Timeout reading data (%.1fs)",
+                    self._name, BRIDGE_TIMEOUT
+                )
                 self._connectionOK = False
-                return
+            except UnicodeDecodeError as e:
+                _LOGGER.error(
+                    "Hargassner %s: Failed to decode message data: %s",
+                    self._name, e
+                )
+                self._missedMsgs += 1
+                if self._missedMsgs > 10:
+                    self._connectionOK = False
+            except Exception as e:
+                _LOGGER.error(
+                    "Hargassner %s: Connection error: %s",
+                    self._name, e, exc_info=True
+                )
+                self._connectionOK = False
+                self._last_connection_error = str(e)
         else:
-            self._infoLog += "HargassnerBridge._update(): Opening connection...\n"
+            # Reconnection logic with exponential backoff
+            if not self._should_attempt_reconnect():
+                _LOGGER.debug(
+                    "Hargassner %s: Waiting %.1fs before next reconnect attempt",
+                    self._name, self._reconnect_delay
+                )
+                return
+
+            self._last_connection_attempt = datetime.now()
+            _LOGGER.info(
+                "Hargassner %s: Attempting connection to %s:23 (attempt #%d, delay: %.1fs)",
+                self._name, self._hostIP, self._connection_attempts + 1, self._reconnect_delay
+            )
+
             try:
                 if self._writer:
-                    self._writer.close()
-                    await self._writer.wait_closed()
-                self._reader, self._writer = await asyncio.wait_for(asyncio.open_connection(self._hostIP, 23), timeout=BRIDGE_TIMEOUT)
+                    try:
+                        self._writer.close()
+                        await self._writer.wait_closed()
+                    except Exception as e:
+                        _LOGGER.debug(
+                            "Hargassner %s: Error closing old connection: %s",
+                            self._name, e
+                        )
+
+                self._reader, self._writer = await asyncio.wait_for(
+                    asyncio.open_connection(self._hostIP, 23),
+                    timeout=BRIDGE_TIMEOUT
+                )
+
                 self._connectionOK = True
-            except Exception:
-                self._errorLog += "HargassnerBridge.async_update(): Error opening connection\n"
+                self._total_reconnects += 1
+                self._reset_reconnect_delay()
+
+                _LOGGER.info(
+                    "Hargassner %s: Successfully connected to %s:23 (total reconnects: %d)",
+                    self._name, self._hostIP, self._total_reconnects
+                )
+
+            except asyncio.TimeoutError:
+                error_msg = f"Connection timeout after {BRIDGE_TIMEOUT}s"
+                _LOGGER.warning(
+                    "Hargassner %s: %s",
+                    self._name, error_msg
+                )
+                self._last_connection_error = error_msg
+                self._increase_reconnect_delay()
+            except OSError as e:
+                error_msg = f"Network error: {e}"
+                _LOGGER.warning(
+                    "Hargassner %s: %s",
+                    self._name, error_msg
+                )
+                self._last_connection_error = error_msg
+                self._increase_reconnect_delay()
+            except Exception as e:
+                error_msg = f"Unexpected error: {e}"
+                _LOGGER.error(
+                    "Hargassner %s: %s",
+                    self._name, error_msg, exc_info=True
+                )
+                self._last_connection_error = error_msg
+                self._increase_reconnect_delay()
     
     @property
     def name(self) -> str:
@@ -216,14 +372,38 @@ class HargassnerBridge(Entity):
         
     @property
     def state(self) -> str | None:
-        if self._connectionOK: return BRIDGE_STATE_OK
-        else: return BRIDGE_STATE_DISCONNECTED
-        
+        if self._connectionOK:
+            return BRIDGE_STATE_OK
+        else:
+            return BRIDGE_STATE_DISCONNECTED
+
+    @property
+    def extra_state_attributes(self):
+        """Return additional state attributes."""
+        attrs = {
+            "host": self._hostIP,
+            "total_reconnects": self._total_reconnects,
+            "connection_attempts": self._connection_attempts,
+        }
+
+        if self._latestUpdate:
+            attrs["last_update"] = self._latestUpdate.isoformat()
+
+        if self._last_connection_error:
+            attrs["last_error"] = self._last_connection_error
+
+        if not self._connectionOK:
+            attrs["next_retry_delay_seconds"] = round(self._reconnect_delay, 1)
+
+        return attrs
+
     @property
     def icon(self):
         """Return an icon for the sensor in the GUI."""
-        if self._connectionOK: return "mdi:network-outline"
-        else: return "mdi:network-off-outline"
+        if self._connectionOK:
+            return "mdi:network-outline"
+        else:
+            return "mdi:network-off-outline"
     
     def getUniqueIdBase(self):
         return self._unique_id
@@ -264,3 +444,39 @@ class HargassnerBridge(Entity):
         log = self._infoLog
         self._infoLog = ""
         return log
+
+    def get_diagnostics_data(self) -> dict:
+        """Return diagnostics data for this bridge."""
+        return {
+            "bridge_info": {
+                "name": self._name,
+                "host": self._hostIP,
+                "unique_id": self._unique_id,
+            },
+            "connection": {
+                "status": "connected" if self._connectionOK else "disconnected",
+                "total_reconnects": self._total_reconnects,
+                "current_connection_attempts": self._connection_attempts,
+                "reconnect_delay_seconds": round(self._reconnect_delay, 2),
+                "last_connection_error": self._last_connection_error,
+                "last_connection_attempt": self._last_connection_attempt.isoformat() if self._last_connection_attempt else None,
+                "last_successful_update": self._latestUpdate.isoformat() if self._latestUpdate else None,
+            },
+            "message_parsing": {
+                "expected_message_length": self._expectedMsgLength,
+                "actual_message_length": self._actualMsgLength,
+                "consecutive_missed_messages": self._missedMsgs,
+                "total_parameters": len(self._paramData),
+            },
+            "parameters": {
+                "parameter_keys": list(self._paramData.keys()),
+                "parameter_count_by_type": {
+                    "analog": sum(1 for p in self._paramData.values() if isinstance(p, HargassnerAnalogueParameter)),
+                    "digital": sum(1 for p in self._paramData.values() if isinstance(p, HargassnerDigitalParameter)),
+                },
+            },
+            "health": {
+                "has_recent_data": self._latestUpdate is not None and (datetime.now() - self._latestUpdate).total_seconds() < 60,
+                "connection_stable": self._connectionOK and self._missedMsgs == 0,
+            },
+        }

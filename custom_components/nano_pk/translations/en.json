@@ -1,0 +1,93 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Hargassner Nano-PK Setup",
+        "description": "Configure your Hargassner boiler connection",
+        "data": {
+          "host": "IP Address or Hostname",
+          "name": "Device Name",
+          "parameters": "Parameter Set",
+          "language": "Language"
+        }
+      },
+      "template": {
+        "title": "Select Message Format",
+        "description": "Choose a template for your boiler model or provide custom XML.\n\n{templates_info}",
+        "data": {
+          "template": "Template"
+        }
+      },
+      "custom_xml": {
+        "title": "Custom DAQPRJ XML",
+        "description": "Paste your DAQPRJ XML content.\n\n{xml_help}",
+        "data": {
+          "xml_content": "XML Content"
+        }
+      },
+      "de_csv": {
+        "title": "Error Code Translations (Optional)",
+        "description": "{csv_help}",
+        "data": {
+          "de_csv_content": "DE.CSV Content (Optional)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the boiler. Please check the IP address and ensure the boiler is reachable.",
+      "invalid_xml": "Invalid DAQPRJ XML format. Please check your XML structure.",
+      "invalid_csv": "Invalid DE.CSV format. Please check your CSV content.",
+      "unknown": "Unexpected error occurred. Please check the logs.",
+      "cannot_save_xml": "Failed to save XML configuration file."
+    },
+    "abort": {
+      "already_configured": "This device is already configured.",
+      "cannot_save_xml": "Failed to save XML configuration file.",
+      "reconfigure_successful": "Reconfiguration completed. The integration has been reloaded."
+    }
+  },
+  "reconfigure": {
+    "step": {
+      "reconfigure": {
+        "title": "Reconfigure Hargassner",
+        "description": "Update configuration after firmware update or network changes.\n\n{current_config}",
+        "data": {
+          "host": "IP Address or Hostname"
+        }
+      },
+      "reconfigure_template": {
+        "title": "Update Message Format",
+        "description": "Select a new template or provide updated XML.",
+        "data": {
+          "template": "Template"
+        }
+      },
+      "reconfigure_custom_xml": {
+        "title": "Update Custom DAQPRJ XML",
+        "description": "Paste your updated DAQPRJ XML content.",
+        "data": {
+          "xml_content": "XML Content"
+        }
+      },
+      "reconfigure_de_csv": {
+        "title": "Update Error Codes (Optional)",
+        "description": "Paste updated DE.CSV content if error codes changed.",
+        "data": {
+          "de_csv_content": "DE.CSV Content (Optional)"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Hargassner Options",
+        "description": "Modify integration settings",
+        "data": {
+          "parameters": "Parameter Set",
+          "language": "Language"
+        }
+      }
+    }
+  }
+}

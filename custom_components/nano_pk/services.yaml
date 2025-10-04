@@ -1,0 +1,5 @@
+# Services for Hargassner Nano-PK integration
+get_diagnostics:
+  name: Get Diagnostics
+  description: Export diagnostic information about the Hargassner integration to the Home Assistant logs.
+  fields: {}
