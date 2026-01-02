@@ -12,7 +12,9 @@ Read on how to try this and let me know if it works!
 
 ## Installation
 
-### Via HACS (WIP)
+### Via HACS (Recommended)
+Use this [My Home Assistant link](https://my.home-assistant.io/redirect/hacs_repository/?owner=Django1982&repository=nano_pk) to add the repository to HACS automatically, or follow the manual steps below.
+
 1. Open HACS in your Home Assistant instance
 2. Go to "Integrations"
 3. Click the three dots in the top right corner and select "Custom repositories"
@@ -20,7 +22,7 @@ Read on how to try this and let me know if it works!
 5. Click "Install" on the nano_pk integration
 6. Restart Home Assistant
 
-### Manual Installation (Recommended)
+### Manual Installation
 1. Create a folder `custom_components` in your Home Assistant `config` folder (if not yet done)
 2. Copy all code from `custom_components/nano_pk` of this repository to `config/custom_components/nano_pk`
 3. Restart Home Assistant

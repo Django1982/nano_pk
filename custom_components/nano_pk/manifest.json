@@ -3,6 +3,7 @@
   "config_flow": true,
   "dependencies": [],
   "documentation": "https://github.com/TheRealKillaruna/nano_pk",
+  "issue_tracker": "https://github.com/Django1982/nano_pk/issues",
   "domain": "nano_pk",
   "iot_class": "calculated",
   "name": "Hargassner Nano-PK",
