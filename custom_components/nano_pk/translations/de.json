@@ -13,7 +13,7 @@
       },
       "template": {
         "title": "Nachrichtenformat auswählen",
-        "description": "Wählen Sie eine Vorlage für Ihr Kesselmodell oder geben Sie eigenes XML ein.\n\n{templates_info}",
+        "description": "Lassen Sie das DAQPRJ XML direkt vom Kessel abrufen, wählen Sie eine integrierte Vorlage oder fügen Sie über 'Eigenes' Ihr XML ein.\n\n{templates_info}",
         "data": {
           "template": "Vorlage"
         }
@@ -37,6 +37,7 @@
       "cannot_connect": "Verbindung zum Kessel fehlgeschlagen. Bitte überprüfen Sie die IP-Adresse und stellen Sie sicher, dass der Kessel erreichbar ist.",
       "invalid_xml": "Ungültiges DAQPRJ XML-Format. Bitte überprüfen Sie die XML-Struktur.",
       "invalid_csv": "Ungültiges DE.CSV-Format. Bitte überprüfen Sie den CSV-Inhalt.",
+      "fetch_failed": "DAQ-Template konnte nicht vom Kessel geladen werden. Stellen Sie die Erreichbarkeit sicher und versuchen Sie es erneut.",
       "unknown": "Ein unerwarteter Fehler ist aufgetreten. Bitte überprüfen Sie die Logs.",
       "cannot_save_xml": "Fehler beim Speichern der XML-Konfigurationsdatei."
     },

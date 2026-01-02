@@ -13,7 +13,7 @@
       },
       "template": {
         "title": "Select Message Format",
-        "description": "Choose a template for your boiler model or provide custom XML.\n\n{templates_info}",
+        "description": "Fetch the DAQPRJ XML directly from your boiler, select a built-in template, or choose 'Custom' to paste your own.\n\n{templates_info}",
         "data": {
           "template": "Template"
         }
@@ -37,6 +37,7 @@
       "cannot_connect": "Failed to connect to the boiler. Please check the IP address and ensure the boiler is reachable.",
       "invalid_xml": "Invalid DAQPRJ XML format. Please check your XML structure.",
       "invalid_csv": "Invalid DE.CSV format. Please check your CSV content.",
+      "fetch_failed": "Failed to fetch the DAQ template from the boiler. Ensure it is reachable and try again.",
       "unknown": "Unexpected error occurred. Please check the logs.",
       "cannot_save_xml": "Failed to save XML configuration file."
     },

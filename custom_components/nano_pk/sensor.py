@@ -17,6 +17,7 @@ from .const import (
     DOMAIN,
     CONF_HOST,
     CONF_FORMAT,
+    CONF_FORMAT_CONTENT,
     CONF_NAME,
     CONF_PARAMS,
     CONF_PARAMS_STANDARD,
@@ -41,7 +42,7 @@ async def async_setup_entry(hass: HomeAssistant, entry, async_add_entities) -> N
     await HargassnerErrorSensor._async_ensure_extended_errors_loaded(hass)
 
     host = entry.data[CONF_HOST]
-    format_file = entry.data[CONF_FORMAT]
+    format_file = entry.data.get(CONF_FORMAT_CONTENT) or entry.data[CONF_FORMAT]
     name = entry.data[CONF_NAME]
     paramSet = entry.data[CONF_PARAMS]
     lang = entry.data[CONF_LANG]
@@ -59,7 +60,7 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
     await HargassnerErrorSensor._async_ensure_extended_errors_loaded(hass)
 
     host = hass.data[DOMAIN][CONF_HOST]
-    format_file = hass.data[DOMAIN][CONF_FORMAT]
+    format_file = hass.data[DOMAIN].get(CONF_FORMAT_CONTENT) or hass.data[DOMAIN][CONF_FORMAT]
     name = hass.data[DOMAIN][CONF_NAME]
     paramSet = hass.data[DOMAIN][CONF_PARAMS]
     lang = hass.data[DOMAIN][CONF_LANG]
@@ -71,11 +72,43 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
     )
 
 
+async def _resolve_msg_format(hass, format_source: str | None) -> str | None:
+    """Resolve msgformat source into XML content."""
+    if not format_source:
+        _LOGGER.error("No message format provided; cannot set up sensors.")
+        return None
+
+    source_str = str(format_source).strip()
+    if source_str.startswith("<DAQPRJ"):
+        return source_str
+
+    needs_file = source_str.endswith(".xml") or "/" in source_str or "\\" in source_str
+
+    if needs_file:
+        path = Path(source_str)
+        if not path.is_absolute():
+            path = Path(__file__).parent / "msgformats" / source_str
+        if not path.exists():
+            _LOGGER.error("Message format file not found: %s", path)
+            return None
+        try:
+            return await hass.async_add_executor_job(path.read_text, "utf-8")
+        except Exception as err:
+            _LOGGER.error("Failed to read message format file %s: %s", path, err)
+            return None
+
+    return source_str
+
+
 async def _setup_sensors(
-    hass, async_add_entities, host, format_file, name, paramSet, lang, uniqueId
+    hass, async_add_entities, host, format_source, name, paramSet, lang, uniqueId
 ) -> None:
     """Shared sensor setup logic for both YAML and Config Entry."""
-    bridge = HargassnerBridge(host, name, uniqueId, msgFormat=format_file)
+    msg_format = await _resolve_msg_format(hass, format_source)
+    if msg_format is None:
+        return
+
+    bridge = HargassnerBridge(host, name, uniqueId, msgFormat=msg_format)
     errorLog = bridge.getErrorLog()
     if errorLog != "": _LOGGER.error(errorLog)
     param_keys = set(bridge.data().keys())
@@ -377,8 +410,8 @@ class HargassnerStateSensor(HargassnerSensor):
         CONF_LANG_DE: {
             0: "Unbekannt",
             1: "Aus",
-            2: "Startvorbereitung",
-            3: "Kessel Start",
+            2: "Zünd. warten",
+            3: "Anheizen",
             4: "Zündüberwachung",
             5: "Zündung",
             6: "Leistungsbrand",

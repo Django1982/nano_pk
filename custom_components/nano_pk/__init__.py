@@ -16,6 +16,7 @@ from .const import (
     DOMAIN,
     CONF_HOST,
     CONF_FORMAT,
+    CONF_FORMAT_CONTENT,
     CONF_NAME,
     CONF_UNIQUE_ID,
     CONF_PARAMS,
@@ -56,6 +57,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         CONF_HOST: config[DOMAIN].get(CONF_HOST),
         CONF_NAME: config[DOMAIN].get(CONF_NAME, "Hargassner"),
         CONF_FORMAT: config[DOMAIN].get(CONF_FORMAT),
+        CONF_FORMAT_CONTENT: config[DOMAIN].get(CONF_FORMAT_CONTENT),
         CONF_PARAMS: config[DOMAIN].get(CONF_PARAMS, CONF_PARAMS_STANDARD),
         CONF_LANG: config[DOMAIN].get(CONF_LANG, CONF_LANG_EN),
         CONF_UNIQUE_ID: config[DOMAIN].get(CONF_UNIQUE_ID, "1"),
@@ -75,6 +77,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     hass.data[DOMAIN][CONF_HOST] = yaml_config[CONF_HOST]
     hass.data[DOMAIN][CONF_NAME] = yaml_config[CONF_NAME]
     hass.data[DOMAIN][CONF_FORMAT] = yaml_config[CONF_FORMAT]
+    hass.data[DOMAIN][CONF_FORMAT_CONTENT] = yaml_config.get(CONF_FORMAT_CONTENT)
     hass.data[DOMAIN][CONF_PARAMS] = yaml_config[CONF_PARAMS]
     hass.data[DOMAIN][CONF_LANG] = yaml_config[CONF_LANG]
     hass.data[DOMAIN][CONF_UNIQUE_ID] = yaml_config[CONF_UNIQUE_ID]

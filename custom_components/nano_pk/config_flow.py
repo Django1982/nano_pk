@@ -23,6 +23,7 @@ import homeassistant.helpers.config_validation as cv
 from .const import (
     DOMAIN,
     CONF_FORMAT,
+    CONF_FORMAT_CONTENT,
     CONF_NAME,
     CONF_PARAMS,
     CONF_PARAMS_STANDARD,
@@ -32,15 +33,18 @@ from .const import (
     CONF_LANG_DE,
     CONF_UNIQUE_ID,
 )
+from .daq_fetcher import async_fetch_daq_template, DaqFetchError
 
 _LOGGER = logging.getLogger(__name__)
 
 # Template selection constants
+TEMPLATE_AUTO_FETCH = "auto_fetch"
 TEMPLATE_CUSTOM = "custom"
 TEMPLATE_NANO_PK_FULL = "NANO_PK_FULL"
 
 # Available templates
 AVAILABLE_TEMPLATES = {
+    TEMPLATE_AUTO_FETCH: "Fetch from boiler via telnet ($DAQ DESC)",
     TEMPLATE_NANO_PK_FULL: "Hargassner Nano-PK (Full - 97 channels)",
     TEMPLATE_CUSTOM: "Custom XML (paste your own)",
 }
@@ -76,6 +80,7 @@ class HargassnerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 CONF_HOST: import_data[CONF_HOST],
                 CONF_NAME: import_data.get(CONF_NAME, "Hargassner"),
                 CONF_FORMAT: import_data[CONF_FORMAT],
+                CONF_FORMAT_CONTENT: import_data.get(CONF_FORMAT_CONTENT),
                 CONF_PARAMS: import_data.get(CONF_PARAMS, CONF_PARAMS_STANDARD),
                 CONF_LANG: import_data.get(CONF_LANG, CONF_LANG_EN),
                 CONF_UNIQUE_ID: import_data.get(CONF_UNIQUE_ID, "1"),
@@ -94,6 +99,7 @@ class HargassnerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     CONF_HOST: user_input[CONF_HOST],
                     CONF_NAME: entry.data[CONF_NAME],  # Keep existing name
                     CONF_FORMAT: entry.data[CONF_FORMAT],  # Will be updated in XML step
+                    CONF_FORMAT_CONTENT: entry.data.get(CONF_FORMAT_CONTENT),
                     CONF_PARAMS: entry.data[CONF_PARAMS],
                     CONF_LANG: entry.data[CONF_LANG],
                     CONF_UNIQUE_ID: entry.data[CONF_UNIQUE_ID],
@@ -129,6 +135,7 @@ class HargassnerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     ) -> FlowResult:
         """Handle template selection during reconfiguration."""
         entry = self.hass.config_entries.async_get_entry(self.context["entry_id"])
+        self._custom_xml = entry.data.get(CONF_FORMAT_CONTENT)
         errors: dict[str, str] = {}
 
         if user_input is not None:
@@ -136,6 +143,15 @@ class HargassnerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
             if self._template == TEMPLATE_CUSTOM:
                 return await self.async_step_reconfigure_custom_xml()
+            if self._template == TEMPLATE_AUTO_FETCH:
+                try:
+                    xml_content = await async_fetch_daq_template(self._host)
+                except DaqFetchError as err:
+                    _LOGGER.error("Failed to fetch DAQ template: %s", err)
+                    errors["base"] = "fetch_failed"
+                else:
+                    self._custom_xml = xml_content
+                    return await self.async_step_reconfigure_custom_xml()
             else:
                 try:
                     xml_content = await self._load_template(self._template)
@@ -177,7 +193,7 @@ class HargassnerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="reconfigure_custom_xml",
             data_schema=vol.Schema(
                 {
-                    vol.Required("xml_content"): cv.string,
+                    vol.Required("xml_content", default=self._custom_xml or ""): cv.string,
                 }
             ),
             errors=errors,
@@ -229,6 +245,7 @@ class HargassnerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         CONF_HOST: self._host,
                         CONF_NAME: entry.data[CONF_NAME],
                         CONF_FORMAT: xml_filename,
+                        CONF_FORMAT_CONTENT: self._custom_xml,
                         CONF_PARAMS: entry.data[CONF_PARAMS],
                         CONF_LANG: entry.data[CONF_LANG],
                         CONF_UNIQUE_ID: entry.data[CONF_UNIQUE_ID],
@@ -304,6 +321,15 @@ class HargassnerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if self._template == TEMPLATE_CUSTOM:
                 # User wants to provide custom XML
                 return await self.async_step_custom_xml()
+            if self._template == TEMPLATE_AUTO_FETCH:
+                try:
+                    xml_content = await async_fetch_daq_template(self._host)
+                except DaqFetchError as err:
+                    _LOGGER.error("Failed to fetch DAQ template: %s", err)
+                    errors["base"] = "fetch_failed"
+                else:
+                    self._custom_xml = xml_content
+                    return await self.async_step_custom_xml()
             else:
                 # Load selected template
                 try:
@@ -332,7 +358,7 @@ class HargassnerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             ),
             errors=errors,
             description_placeholders={
-                "templates_info": "Select a pre-defined template for your boiler model, or choose 'Custom' to paste your own DAQPRJ XML."
+                "templates_info": "Fetch the DAQPRJ XML directly from your boiler, select a built-in template, or choose 'Custom' to paste your own."
             },
         )
 
@@ -362,7 +388,7 @@ class HargassnerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="custom_xml",
             data_schema=vol.Schema(
                 {
-                    vol.Required("xml_content"): cv.string,
+                    vol.Required("xml_content", default=self._custom_xml or ""): cv.string,
                 }
             ),
             errors=errors,
@@ -441,6 +467,7 @@ class HargassnerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 CONF_HOST: self._host,
                 CONF_NAME: self._name,
                 CONF_FORMAT: xml_filename,
+                CONF_FORMAT_CONTENT: self._custom_xml,
                 CONF_PARAMS: self._params,
                 CONF_LANG: self._lang,
                 CONF_UNIQUE_ID: f"{self._host}_{self._name}",

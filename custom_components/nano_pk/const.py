@@ -2,6 +2,7 @@ DOMAIN = "nano_pk"
 
 CONF_HOST = "host"
 CONF_FORMAT = "msgformat"
+CONF_FORMAT_CONTENT = "msgformat_content"
 CONF_NAME = "devicename"
 CONF_PARAMS = "parameters"
 CONF_PARAMS_STANDARD = "STANDARD"

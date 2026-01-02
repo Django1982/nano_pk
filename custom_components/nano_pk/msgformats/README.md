@@ -15,7 +15,9 @@ The DAQPRJ XML format defines the structure of telnet messages from Hargassner b
 
 ### Getting your DAQPRJ XML:
 
-You need to export the DAQPRJ XML from your Hargassner boiler's web interface or configuration tool. The exact location varies by model.
+- **Auto-fetch via config flow** – choose the "Fetch from boiler" option during setup to run `$DAQ DESC` over telnet and pre-fill the XML field (you can still edit it before saving).
+- **CLI helper** – from this repository root run `python3 tools/daq_desc_dump.py <boiler_ip> -o my_boiler.xml` to dump the XML and reuse it later.
+- **Manual export** – export the DAQPRJ XML from the Hargassner web UI or configuration tool if telnet access is unavailable.
 
 ## Available Templates
 
